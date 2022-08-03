@@ -39,28 +39,28 @@ def v_hat_k(drift_func, diff_coeff, k, dim_r=None):
     
     def v_hat_0_func(func):
         
-        def v_hat_0_func_x_z(x, z):
+        def v_hat_0_func_x_θ(x, θ):
             dim_r_ = x.shape[0] if dim_r is None else dim_r
-            a = drift_func(x, z)
-            B = diff_coeff(x, z)
+            a = drift_func(x, θ)
+            B = diff_coeff(x, θ)
             BB_T = B @ B.T
-            f = func(x, z)
+            f = func(x, θ)
             df_dx = diff(f, x)
             d2f_dx2 = diff(f, x[:dim_r_], 2)
             return df_dx @ a + (d2f_dx2 * BB_T).sum((1, 2)) / 2
         
-        return v_hat_0_func_x_z
+        return v_hat_0_func_x_θ
     
     def v_hat_k_func(func):
         
-        def v_hat_k_func_x_z(x, z):
+        def v_hat_k_func_x_θ(x, θ):
             dim_r_ = x.shape[0] if dim_r is None else dim_r
-            B = diff_coeff(x, z)
-            f = func(x, z)
+            B = diff_coeff(x, θ)
+            f = func(x, θ)
             df_dx = diff(f, x[:dim_r_])
             return df_dx @ B[:, k - 1]
         
-        return v_hat_k_func_x_z
+        return v_hat_k_func_x_θ
     
     if k == 0:
         return v_hat_0_func
@@ -70,8 +70,8 @@ def v_hat_k(drift_func, diff_coeff, k, dim_r=None):
 
 def subscript_k(func, k):
     
-    def func_k(x, z):
-        return func(x, z)[k]
+    def func_k(x, θ):
+        return func(x, θ)[k]
     
     return func_k
 
@@ -81,10 +81,10 @@ def square_bracket(drift_func, diff_coeff, k_1, k_2):
     v_k_1 = drift_func if k_1 == 0 else subscript_k(diff_coeff, k_1 - 1)
     v_k_2 = drift_func if k_2 == 0 else subscript_k(diff_coeff, k_2 - 1)
 
-    def square_bracket_v_k_1_v_k_2(x, z):
+    def square_bracket_v_k_1_v_k_2(x, θ):
         return (
-            v_hat_k(drift_func, diff_coeff, k_1)(v_k_2)(x, z) 
-            - v_hat_k(drift_func, diff_coeff, k_2)(v_k_1)(x, z)
+            v_hat_k(drift_func, diff_coeff, k_1)(v_k_2)(x, θ) 
+            - v_hat_k(drift_func, diff_coeff, k_2)(v_k_1)(x, θ)
         )
 
     return square_bracket_v_k_1_v_k_2
