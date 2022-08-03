@@ -43,22 +43,21 @@ def hypoelliptic_weak_order_2_step(drift_func_rough, drift_func_smooth, diff_coe
     
     def step_func(x, θ, n, t):
         dim_x = x.shape[0]
-        a_r = drift_func_rough(x, θ)
-        a_s = drift_func_smooth(x, θ)
-        dim_r = a_r.shape[0]
+        dim_r = drift_func_rough(x, θ).shape[0]
         x_r, x_s = x[:dim_r], x[dim_r:]
         v_r = [drift_func_rough] + [subscript_k(diff_coeff_rough, k) for k in range(dim_r)]
         b = [t] + [t**0.5 * n[k] for k in range(dim_r)]
-        b_tilde = [None] + [t**0.5 * n[k] for k in range(dim_r, 2 * dim_r)]
-        w = [None] * 2 + [t**0.5 * n[k] for k in range(2 * dim_r, 3 * dim_r - 1)]
+        b_hat = [None] + [t**0.5 * n[k] for k in range(dim_r, 2 * dim_r)]
+        b_tilde = [None] + [t**0.5 * n[k] for k in range(2 * dim_r, 3 * dim_r)]
+        w = [None] * 2 + [t**0.5 * n[k] for k in range(3 * dim_r, 4 * dim_r - 1)]
  
-        def ζ_k_1_k_2(k_1, k_2):
+        def ζ(k_1, k_2):
             if k_1 == k_2 == 0:
                 return t**2 / 2
             elif k_1 == 0:
-                return b[k_2] * t / 2 # TODO: what should this be?
+                return (t / 2) * (b[k_2] + b_hat[k_2] / snp.sqrt(3))
             elif k_2 == 0:
-                return b[k_1] * t / 2 # TODO: what should this be?
+                return b[k_1] * t - ζ(0, k_1)
             elif k_1 == k_2:
                 return (b[k_1]**2 - t) / 2
             elif k_1 < k_2:
@@ -66,47 +65,45 @@ def hypoelliptic_weak_order_2_step(drift_func_rough, drift_func_smooth, diff_coe
             else:
                 return (b[k_1] * b[k_2] - b[k_2] * b_tilde[k_1]) / 2
             
-        def η_k_1_k_2(k_1, k_2):
+        def η(k_1, k_2):
             if k_1 == k_2 == 0:
                 # This value should never be used
                 return None
             elif k_2 == 0:
-                return ζ_k_1_k_2(k_1, 0) * t / 2 - b[k_1] * t**2 / 12
+                return ζ(k_1, 0) * t / 2 - b[k_1] * t**2 / 12
             elif k_1 == 0:
-                return ζ_k_1_k_2(k_2, 0) * t -  b[k_2] * t**2 / 3
+                return ζ(k_2, 0) * t -  b[k_2] * t**2 / 3
             elif k_1 == k_2:
-                return ζ_k_1_k_2(k_1, k_2) * t / 3 - (b_tilde[k_1]**2 - t) / (6 * snp.sqrt(2))
+                return ζ(k_1, k_2) * t / 3 - (b_tilde[k_1]**2 - t) / (6 * snp.sqrt(2))
             elif k_1 < k_2:
-                return ζ_k_1_k_2(k_1, k_2) * t / 3 - (
+                return ζ(k_1, k_2) * t / 3 - (
                     b_tilde[k_1] * b_tilde[k_2] - b_tilde[k_1] * w[k_2]
                 ) / (6 * snp.sqrt(2))
             else:
-                return ζ_k_1_k_2(k_1, k_2) * t / 3 - (
+                return ζ(k_1, k_2) * t / 3 - (
                     b_tilde[k_1] * b_tilde[k_2] - b_tilde[k_2] * w[k_1]
                 ) / (6 * snp.sqrt(2))
         
-        ζ = [[ζ_k_1_k_2(k_1, k_2) for k_1 in range(dim_r + 1)] for k_2 in range(dim_r + 1)]
-        η = [[η_k_1_k_2(k_1, k_2) for k_1 in range(dim_r + 1)] for k_2 in range(dim_r + 1)]
     
         return snp.concatenate((
             x_r 
             + sum(v_r[k](x, θ) * b[k] for k in range(dim_r + 1)) 
             + sum(
                 v_hat_k(drift_func, diff_coeff_rough, k_1, dim_r)(v_r[k_2])(x, θ) 
-                * ζ[k_1][k_2]
+                * ζ(k_1, k_2)
                 for k_1 in range(dim_r + 1) for k_2 in range(dim_r + 1)
             ) / 2,
             x_s
             + drift_func_smooth(x, θ) * t
             + sum(
-                v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(drift_func_smooth)(x, θ) * ζ[k][0] 
+                v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(drift_func_smooth)(x, θ) * ζ(k, 0) 
                 for k in range(dim_r + 1)
             )
             + sum(
                 v_hat_k(drift_func, diff_coeff_rough, k_1, dim_r)(
                     v_hat_k(drift_func, diff_coeff_rough, k_2, dim_r)(drift_func_smooth)
                 )(x, θ) 
-                * η[k_1][k_2]
+                * η(k_1, k_2)
                 for k_1 in range(dim_r + 1) for k_2 in range(dim_r + 1) if not (k_1 == k_2 == 0)
             )
         ))
