@@ -67,7 +67,7 @@ def local_gaussian_log_transition_density(
             )
         Σ = sympy.Matrix(Σ)
         return -(
-            (x_t - μ) * Σ.inv() * (x_t - mu) / 2 
+            (x_t - μ) * Σ.inv() * (x_t - μ) / 2 
             + snp.log(Σ.det()) / 2 
             + snp.log(2 * snp.pi) * (dim_x / 2)
         )
