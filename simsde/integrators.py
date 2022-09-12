@@ -27,7 +27,7 @@ def elliptic_weak_order_2_step(drift_func, diff_coeff):
             / 2
             + sum(
                 square_bracket(drift_func, diff_coeff, k_1, k_2)(x, θ)
-                * (b[k_1] * b[k_2])
+                * (b[k_1] * b_tilde[k_2])
                 for k_1 in range(1, dim_x + 1)
                 for k_2 in range(k_1 + 1, dim_x + 1)
             )
