@@ -3,8 +3,9 @@ import symnum.numpy as snp
 from simsde.operators import v_hat_k
 
 
-def local_gaussian_mean_and_covariance(drift_func_rough, drift_func_smooth, diff_coeff_rough):
-
+def local_gaussian_mean_and_covariance(
+    drift_func_rough, drift_func_smooth, diff_coeff_rough
+):
     def drift_func(x, θ):
         return snp.concatenate((drift_func_rough(x, θ), drift_func_smooth(x, θ)))
 
@@ -14,8 +15,13 @@ def local_gaussian_mean_and_covariance(drift_func_rough, drift_func_smooth, diff
         μ = snp.concatenate(
             [
                 x_r + drift_func_rough(x, θ) * t,
-                x_s + drift_func_smooth(x, θ) * t
-                + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth)(x, θ) * t**2 / 2
+                x_s
+                + drift_func_smooth(x, θ) * t
+                + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth)(
+                    x, θ
+                )
+                * t**2
+                / 2,
             ]
         )
         B_r = diff_coeff_rough(x, θ)
@@ -31,9 +37,9 @@ def local_gaussian_mean_and_covariance(drift_func_rough, drift_func_smooth, diff
         Σ = snp.concatenate(
             [
                 snp.concatenate([Σ_11, Σ_12], axis=1),
-                snp.concatenate([Σ_12.T, Σ_22], axis=1)
+                snp.concatenate([Σ_12.T, Σ_22], axis=1),
             ],
-            axis=0
+            axis=0,
         )
         return μ, Σ
 
@@ -53,11 +59,12 @@ def local_gaussian_log_transition_density(
         μ, Σ = mean_and_covariance(x_0, θ, t)
         if dim_x > max_dimension:
             raise ValueError(
-                f"x has dimension dim_x={dim_x} which is greater than max_dimension={max_dimension}. "
-                f"Symbolically computing the log density requires evaluating the determinant of the "
-                f"(dim_x, dim_x) covariance matrix with a cost factorial in dim_x. To allow evaluation "
-                f"increase max_dimension to be more than or equal to dim_x but be aware this may lead "
-                f"to very long evaluation times"
+                f"x has dimension dim_x={dim_x} which is greater than max_dimension="
+                f"{max_dimension}. Symbolically computing the log density requires "
+                f"evaluating the determinant of the (dim_x, dim_x) covariance matrix "
+                f"with a cost factorial in dim_x. To allow evaluation increase "
+                f"max_dimension to be more than or equal to dim_x but be aware this may"
+                f" lead to very long evaluation times."
             )
         Σ = sympy.Matrix(Σ)
         return -(
