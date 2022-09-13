@@ -122,3 +122,37 @@ def hypoelliptic_weak_order_2_step(
         )
 
     return step_func
+
+
+def hypoelliptic_local_gaussian_step(
+    drift_func_rough, drift_func_smooth, diff_coeff_rough
+):
+    def drift_func(x, θ):
+        return snp.concatenate((drift_func_rough(x, θ), drift_func_smooth(x, θ)))
+
+    def step_func(x, θ, n, t):
+        dim_r = drift_func_rough(x, θ).shape[0]
+        x_r, x_s = x[:dim_r], x[dim_r:]
+        b = snp.sqrt(t) * n[:dim_r]
+        b_tilde = snp.sqrt(t**3) * (n[:dim_r] * n[dim_r:] / snp.sqrt(3)) / 2
+        return snp.concatenate(
+            [
+                x_r + drift_func_rough(x, θ) * t + diff_coeff_rough(x, θ) @ b,
+                x_s
+                + drift_func_smooth(x, θ) * t
+                + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth)(
+                    x, θ
+                )
+                * t**2
+                / 2
+                + sum(
+                    v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(drift_func_smooth)(
+                        x, θ
+                    )
+                    * b_tilde[k - 1]
+                    for k in range(1, dim_r + 1)
+                ),
+            ]
+        )
+
+    return step_func
