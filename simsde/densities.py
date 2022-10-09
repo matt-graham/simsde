@@ -229,7 +229,7 @@ def improved_scheme_log_transition_density(
         H = h * h.T - sympy.Matrix(Σ_1).inverse_CH()
         return (
             (M_rr * H[:dim_r, :dim_r]).sum()
-            + 2 * (M_rs * H[:dim_r, dim_r:]).sum()
+            + (M_rs * H[:dim_r, dim_r:]).sum()
             + (M_ss * H[dim_r:, dim_r:]).sum()
         )
 
