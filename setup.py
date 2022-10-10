@@ -9,10 +9,9 @@ setup(
     author='Matt Graham',
     url='https://github.com/matt-graham/sdesim.git',
     packages=find_packages(),
-    python_requires='>=3.8',
+    python_requires='>=3.7',
     install_requires=[
         'symnum==0.1.2',
-        'numpy>=1.21',
         'sympy>=1.10',
     ],
 )
