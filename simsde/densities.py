@@ -99,7 +99,7 @@ def improved_scheme_log_transition_density(
         ]
         Σ_1_h = snp.concatenate(
             (
-                (y_r - x_r - drift_func_smooth(x, θ) * t) / snp.sqrt(t),
+                (y_r - x_r - drift_func_rough(x, θ) * t) / snp.sqrt(t),
                 (
                     y_s
                     - x_s
