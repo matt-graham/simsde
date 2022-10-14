@@ -126,10 +126,7 @@ def improved_scheme_log_transition_density(
             ]
         ) + (t / 4) * sum(
             [
-                outer(
-                    v_hat_k(drift_func, diff_coeff_rough, k_1, dim_r)(v_r[k_2])(x, θ),
-                    v_hat_k(drift_func, diff_coeff_rough, k_2, dim_r)(v_r[k_1])(x, θ),
-                )
+                outer(v_hat_k(drift_func, diff_coeff_rough, k_1, dim_r)(v_r[k_2])(x, θ))
                 for k_1 in range(1, dim_r + 1)
                 for k_2 in range(1, dim_r + 1)
             ]
