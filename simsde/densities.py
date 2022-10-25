@@ -46,36 +46,7 @@ def local_gaussian_mean_and_covariance(
     return mean_and_covariance
 
 
-def local_gaussian_log_transition_density(
-    drift_func_rough, drift_func_smooth, diff_coeff_rough
-):
-
-    mean_and_covariance = local_gaussian_mean_and_covariance(
-        drift_func_rough, drift_func_smooth, diff_coeff_rough
-    )
-
-    def log_transition_density(x_t, x_0, θ, t):
-        dim_x = x_0.shape[0]
-        μ, Σ = mean_and_covariance(x_0, θ, t)
-        Σ = sympy.Matrix(Σ)
-        chol_Σ = Σ.cholesky(hermitian=False)
-        x_t_minus_μ = sympy.Matrix(x_t - μ)
-        return -(
-            (
-                x_t_minus_μ.T
-                * chol_Σ.T.upper_triangular_solve(
-                    chol_Σ.lower_triangular_solve(x_t_minus_μ)
-                )
-            )[0, 0]
-            / 2
-            + snp.log(chol_Σ.diagonal()).sum()
-            + snp.log(2 * snp.pi) * (dim_x / 2)
-        )
-
-    return log_transition_density
-
-
-def improved_scheme_log_transition_density(
+def improved_scheme_correction_terms(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
 ):
     def drift_func(x, θ):
@@ -83,21 +54,18 @@ def improved_scheme_log_transition_density(
 
     def outer(a, b=None):
         b = a if b is None else b
-        return a.reshape((a.shape[0], 1)) * b.reshape((1, b.shape[0]))
+        return a.reshape(a.shape + (1,) * b.ndim) * b.reshape((1,) * a.ndim + b.shape)
 
     mean_and_covariance = local_gaussian_mean_and_covariance(
         drift_func_rough, drift_func_smooth, diff_coeff_rough
     )
 
-    def Φ_2(t, x, y, θ):
+    def hermite_polynomial_terms(t, x, y, θ):
         _, Σ_1 = mean_and_covariance(x, θ, 1)
         dim_r = drift_func_rough(x, θ).shape[0]
         x_r, x_s = x[:dim_r], x[dim_r:]
         y_r, y_s = y[:dim_r], y[dim_r:]
-        v_r = [drift_func_rough] + [
-            subscript_k(diff_coeff_rough, k) for k in range(dim_r)
-        ]
-        Σ_1_h = snp.concatenate(
+        Σ_1_h_1 = snp.concatenate(
             (
                 (y_r - x_r - drift_func_rough(x, θ) * t) / snp.sqrt(t),
                 (
@@ -113,6 +81,48 @@ def improved_scheme_log_transition_density(
                 / snp.sqrt(t) ** 3,
             )
         )
+        Σ_1_inv = snp.array(sympy.Matrix(Σ_1).inverse_CH())
+        h_1 = Σ_1_inv @ Σ_1_h_1
+        outer_h_1_h_1 = outer(h_1, h_1)
+        outer_h_1_h_1_h_1 = outer(h_1, outer_h_1_h_1)
+        h_2 = outer_h_1_h_1 - Σ_1_inv
+        outer_h_1_Σ_1_inv = outer(h_1, Σ_1_inv)
+        h_3 = (
+            outer_h_1_h_1_h_1
+            - outer_h_1_Σ_1_inv
+            - outer_h_1_Σ_1_inv.transpose((1, 0, 2))
+            - outer_h_1_Σ_1_inv.transpose((2, 1, 0))
+        )
+        return h_1, h_2, h_3
+
+    def Φ_1(t, x, y, θ):
+        dim_r = drift_func_rough(x, θ).shape[0]
+        v_r = [drift_func_rough] + [
+            subscript_k(diff_coeff_rough, k) for k in range(dim_r)
+        ]
+        _, _, h_3 = hermite_polynomial_terms(t, x, y, θ)
+        return (snp.sqrt(t) / 2) * (
+            sum(
+                outer(
+                    outer(
+                        v_hat_k(drift_func, diff_coeff_rough, k_1, dim_r)(v_r[k_2])(
+                            x, θ
+                        ),
+                        v_r[k_1](x, θ),
+                    ),
+                    v_r[k_2](x, θ),
+                )
+                for k_1 in range(1, dim_r + 1)
+                for k_2 in range(1, dim_r + 1)
+            )
+            * h_3[:dim_r, :dim_r, :dim_r]
+        ).sum()
+
+    def Φ_2(t, x, y, θ):
+        dim_r = drift_func_rough(x, θ).shape[0]
+        v_r = [drift_func_rough] + [
+            subscript_k(diff_coeff_rough, k) for k in range(dim_r)
+        ]
         M_rr = (t / 2) * sum(
             [
                 outer(
@@ -222,13 +232,63 @@ def improved_scheme_log_transition_density(
                 for k_2 in range(1, dim_r + 1)
             ]
         )
-        h = sympy.Matrix(Σ_1).cholesky_solve(sympy.Matrix(Σ_1_h))
-        H = h * h.T - sympy.Matrix(Σ_1).inverse_CH()
+        _, h_2, _ = hermite_polynomial_terms(t, x, y, θ)
         return (
-            (M_rr * H[:dim_r, :dim_r]).sum()
-            + (M_rs * H[:dim_r, dim_r:]).sum()
-            + (M_ss * H[dim_r:, dim_r:]).sum()
+            (M_rr * h_2[:dim_r, :dim_r]).sum()
+            + (M_rs * h_2[:dim_r, dim_r:]).sum()
+            + (M_ss * h_2[dim_r:, dim_r:]).sum()
         )
+
+    def Φ_3(t, x, y, θ):
+        dim_r = drift_func_rough(x, θ).shape[0]
+        h_1, _, _ = hermite_polynomial_terms(t, x, y, θ)
+        return (snp.sqrt(t**3) / 2) * (
+            v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_rough)(x, θ)
+            @ h_1[:dim_r]
+        )
+
+    return Φ_1, Φ_2, Φ_3
+
+
+def local_gaussian_log_transition_density(
+    drift_func_rough, drift_func_smooth, diff_coeff_rough
+):
+
+    mean_and_covariance = local_gaussian_mean_and_covariance(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
+
+    def log_transition_density(x_t, x_0, θ, t):
+        dim_x = x_0.shape[0]
+        μ, Σ = mean_and_covariance(x_0, θ, t)
+        Σ = sympy.Matrix(Σ)
+        chol_Σ = Σ.cholesky(hermitian=False)
+        x_t_minus_μ = sympy.Matrix(x_t - μ)
+        return -(
+            (
+                x_t_minus_μ.T
+                * chol_Σ.T.upper_triangular_solve(
+                    chol_Σ.lower_triangular_solve(x_t_minus_μ)
+                )
+            )[0, 0]
+            / 2
+            + snp.log(chol_Σ.diagonal()).sum()
+            + snp.log(2 * snp.pi) * (dim_x / 2)
+        )
+
+    return log_transition_density
+
+
+def improved_scheme_log_transition_density(
+    drift_func_rough, drift_func_smooth, diff_coeff_rough
+):
+    mean_and_covariance = local_gaussian_mean_and_covariance(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
+
+    _, Φ_2, _ = improved_scheme_correction_terms(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
 
     def log_transition_density(x_t, x_0, θ, t):
         dim_x = x_0.shape[0]
