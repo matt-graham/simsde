@@ -279,10 +279,49 @@ def local_gaussian_log_transition_density(
     return log_transition_density
 
 
-def improved_scheme_log_transition_density(
+def improved_scheme_transition_density_1(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
 ):
-    mean_and_covariance = local_gaussian_mean_and_covariance(
+    lg_log_transition_density = local_gaussian_log_transition_density(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
+
+    Φ_1, Φ_2, Φ_3 = improved_scheme_correction_terms(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
+
+    def transition_density(x_t, x_0, θ, t):
+        Φ = Φ_1(t, x_0, x_t, θ) + Φ_2(t, x_0, x_t, θ) + Φ_3(t, x_0, x_t, θ)
+        return snp.exp(lg_log_transition_density(x_t, x_0, θ, t)) * (1 + Φ)
+
+    return transition_density
+
+
+def improved_scheme_log_transition_density_2(
+    drift_func_rough, drift_func_smooth, diff_coeff_rough
+):
+    lg_log_transition_density = local_gaussian_log_transition_density(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
+
+    Φ_1, Φ_2, Φ_3 = improved_scheme_correction_terms(
+        drift_func_rough, drift_func_smooth, diff_coeff_rough
+    )
+
+    def log1p_taylor_expansion(z, n=6):
+        return sum((-1)**(i + 1) * z**i / i for i in range(1, n + 1))
+
+    def log_transition_density(x_t, x_0, θ, t):
+        Φ = Φ_1(t, x_0, x_t, θ) + Φ_2(t, x_0, x_t, θ) + Φ_3(t, x_0, x_t, θ)
+        return lg_log_transition_density(x_t, x_0, θ, t) + log1p_taylor_expansion(Φ)
+
+    return log_transition_density
+
+
+def improved_scheme_log_transition_density_proxy(
+    drift_func_rough, drift_func_smooth, diff_coeff_rough
+):
+    lg_log_transition_density = local_gaussian_log_transition_density(
         drift_func_rough, drift_func_smooth, diff_coeff_rough
     )
 
@@ -291,22 +330,6 @@ def improved_scheme_log_transition_density(
     )
 
     def log_transition_density(x_t, x_0, θ, t):
-        dim_x = x_0.shape[0]
-        μ, Σ = mean_and_covariance(x_0, θ, t)
-        Σ = sympy.Matrix(Σ)
-        chol_Σ = Σ.cholesky(hermitian=False)
-        x_t_minus_μ = sympy.Matrix(x_t - μ)
-        return -(
-            (
-                x_t_minus_μ.T
-                * chol_Σ.T.upper_triangular_solve(
-                    chol_Σ.lower_triangular_solve(x_t_minus_μ)
-                )
-            )[0, 0]
-            / 2
-            + snp.log(chol_Σ.diagonal()).sum()
-            + snp.log(2 * snp.pi) * (dim_x / 2)
-            - Φ_2(t, x_0, x_t, θ)
-        )
+        return lg_log_transition_density(x_t, x_0, θ, t) + Φ_2(t, x_0, x_t, θ)
 
     return log_transition_density
