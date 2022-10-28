@@ -156,7 +156,7 @@ def improved_scheme_correction_terms(
                             drift_func_smooth
                         )(x, θ),
                     )
-                    for k in range(1, dim_r)
+                    for k in range(1, dim_r + 1)
                 ]
             )
             + (t / 6)
