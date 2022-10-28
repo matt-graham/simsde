@@ -244,8 +244,8 @@ def improved_scheme_correction_terms(
         h_1, _, _ = hermite_polynomial_terms(t, x, y, θ)
         return (snp.sqrt(t**3) / 2) * (
             v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_rough)(x, θ)
-            @ h_1[:dim_r]
-        )
+            * h_1[:dim_r]
+        ).sum()
 
     return Φ_1, Φ_2, Φ_3
 
