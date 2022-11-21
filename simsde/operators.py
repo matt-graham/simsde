@@ -73,7 +73,7 @@ def v_hat_k(drift_func, diff_coeff, k, dim_r=None):
 
 def subscript_k(func, k):
     def func_k(x, θ):
-        return func(x, θ)[k]
+        return func(x, θ)[:, k]
 
     return func_k
 
