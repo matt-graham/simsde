@@ -156,3 +156,62 @@ def hypoelliptic_local_gaussian_step(
         )
 
     return step_func
+
+# This is the sampling scheme for the model Hypo-II
+# smooth_1 correponds to the most smooth part of the system, e.g., smooth_1 = position, smooth_2 = momentum in GLE. 
+def hypoelliptic_II_local_gaussian_step(
+    drift_func, drift_func_rough, drift_func_smooth_1, drift_func_smooth_2, diff_coeff_rough
+):    
+    def step_func(x, θ, n, t):
+        dim_r = drift_func_rough(x, θ).shape[0]
+        dim_s2 = drift_func_smooth_2(x, θ).shape[0] 
+        x_r, x_s_2, x_s_1 = x[:dim_r], x[dim_r: dim_r + dim_s2], x[dim_r + dim_s2:]
+        b = snp.sqrt(t) * n[:dim_r]
+        int_bm_time = snp.sqrt(t**3) * (n[:dim_r] + n[dim_r:2*dim_r]/snp.sqrt(3))/2
+        int_bm_time_time = snp.sqrt(t**5) * (n[:dim_r] + snp.sqrt(3)*n[dim_r:2*dim_r]/2 + n[2*dim_r:]/snp.sqrt(20))/6  
+        return snp.concatenate(
+            [
+                # integrator for the rough component
+                x_r + drift_func_rough(x, θ) * t + diff_coeff_rough(x, θ) @ b,
+                # integrator for the second smooth component
+                x_s_2
+                + drift_func_smooth_2(x, θ) * t
+                + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth_2)(
+                    x, θ
+                )
+                * t**2
+                / 2
+                + sum(
+                    v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(drift_func_smooth_2)(
+                        x, θ
+                    )
+                    * int_bm_time[k - 1]
+                    for k in range(1, dim_r + 1)
+                ),
+                # integrator for the most smooth component
+                x_s_1
+                + drift_func_smooth_1(x, θ) * t
+                +  v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth_1)(
+                    x, θ
+                )
+                * t**2
+                / 2
+                + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
+                            v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
+                                drift_func_smooth_1
+                            )
+                        )(x, θ)
+                * t**3
+                / 6
+                + sum(v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(
+                            v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
+                                drift_func_smooth_1
+                            )
+                        )(x, θ)
+                        * int_bm_time_time[k-1]
+                        for k in range(1, dim_r + 1)
+                )
+            ]
+        )
+
+    return step_func
