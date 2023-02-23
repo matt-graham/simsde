@@ -2,7 +2,7 @@ import sympy
 import symnum.numpy as snp
 from simsde.operators import v_hat_k, subscript_k
 
-# This is the local gaussian density for the model Hypo-I. 
+# This is the local gaussian density for the model Hypo-I.
 def local_gaussian_mean_and_covariance(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
 ):
@@ -45,23 +45,31 @@ def local_gaussian_mean_and_covariance(
 
     return mean_and_covariance
 
-# This return mean and covariance of the local gaussian density for the model Hypo-II. 
-# Note: drift_func_smooth_1 is assumed to be the drift for the most smooth components and does not depend on rough components 
+
+# This return mean and covariance of the local gaussian density for the model Hypo-II.
+# Note: drift_func_smooth_1 is assumed to be the drift for the most smooth components and does not depend on rough components
 def local_gaussian_mean_and_covariance_II(
-    drift_func_smooth_1, drift_func_smooth_2, drift_func_rough,diff_coeff_rough
+    drift_func_smooth_1, drift_func_smooth_2, drift_func_rough, diff_coeff_rough
 ):
     def drift_func(x, θ):
-        return snp.concatenate((drift_func_rough(x, θ), drift_func_smooth_2(x, θ), drift_func_smooth_1(x, θ)))
+        return snp.concatenate(
+            (
+                drift_func_rough(x, θ),
+                drift_func_smooth_2(x, θ),
+                drift_func_smooth_1(x, θ),
+            )
+        )
 
     def mean_and_covariance(x, θ, t):
         dim_r = drift_func_rough(x, θ).shape[0]
         dim_s2 = drift_func_smooth_2(x, θ).shape[0]
-        x_r, x_s_2, x_s_1 = x[:dim_r], x[dim_r:dim_r + dim_s2], x[dim_r + dim_s2:]
+        x_r, x_s_2, x_s_1 = x[:dim_r], x[dim_r : dim_r + dim_s2], x[dim_r + dim_s2 :]
         μ = snp.concatenate(
             [
                 # drift approximation for the rough component up to O (t) terms
                 x_r + drift_func_rough(x, θ) * t,
-                # drift approximation for the second smooth component (position in GLE) up to O (t^2) terms 
+                # drift approximation for the second smooth component (position in GLE)
+                # up to O (t^2) terms
                 x_s_2
                 + drift_func_smooth_2(x, θ) * t
                 + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth_2)(
@@ -69,7 +77,8 @@ def local_gaussian_mean_and_covariance_II(
                 )
                 * t**2
                 / 2,
-                # drift approximation for the first smooth component (position in GLE) up to O (t^3) terms
+                # drift approximation for the first smooth component (position in GLE)
+                # up to O (t^3) terms
                 x_s_1
                 + drift_func_smooth_1(x, θ) * t
                 + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth_1)(
@@ -78,10 +87,8 @@ def local_gaussian_mean_and_covariance_II(
                 * t**2
                 / 2
                 + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
-                            v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
-                                drift_func_smooth_1
-                            )
-                        )(x, θ)
+                    v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth_1)
+                )(x, θ)
                 * t**3
                 / 6,
             ]
@@ -89,17 +96,17 @@ def local_gaussian_mean_and_covariance_II(
         C_r = diff_coeff_rough(x, θ)
         C_s2 = snp.array(
             [
-                v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(drift_func_smooth_2)(x, θ)
+                v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(drift_func_smooth_2)(
+                    x, θ
+                )
                 for k in range(1, dim_r + 1)
             ],
         ).T
         C_s1 = snp.array(
             [
                 v_hat_k(drift_func, diff_coeff_rough, k, dim_r)(
-                            v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
-                                drift_func_smooth_1
-                            )
-                        )(x, θ)
+                    v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth_1)
+                )(x, θ)
                 for k in range(1, dim_r + 1)
             ],
         ).T
@@ -113,7 +120,7 @@ def local_gaussian_mean_and_covariance_II(
             [
                 snp.concatenate([Σ_RR, Σ_RS2, Σ_RS1], axis=1),
                 snp.concatenate([Σ_RS2.T, Σ_S2S2, Σ_S2S1], axis=1),
-                snp.concatenate([Σ_RS1.T, Σ_S2S1.T, Σ_S1S1], axis=1)
+                snp.concatenate([Σ_RS1.T, Σ_S2S1.T, Σ_S1S1], axis=1),
             ],
             axis=0,
         )
@@ -121,8 +128,9 @@ def local_gaussian_mean_and_covariance_II(
 
     return mean_and_covariance
 
+
 # This is the gaussian density with higher order approximation for the drift function
-# for the model Hypo-I 
+# for the model Hypo-I
 def local_gaussian_improved_mean_and_covariance(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
 ):
@@ -134,12 +142,13 @@ def local_gaussian_improved_mean_and_covariance(
         x_r, x_s = x[:dim_r], x[dim_r:]
         μ = snp.concatenate(
             [
-                x_r + drift_func_rough(x, θ) * t
+                x_r
+                + drift_func_rough(x, θ) * t
                 + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_rough)(
                     x, θ
                 )
                 * t**2
-                / 2, # drift approximation for rough components with the additional term O(t^2)
+                / 2,  # drift approximation for rough components with the additional term O(t^2)
                 x_s
                 + drift_func_smooth(x, θ) * t
                 + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth)(
@@ -148,12 +157,10 @@ def local_gaussian_improved_mean_and_covariance(
                 * t**2
                 / 2
                 + v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
-                            v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(
-                                drift_func_smooth
-                            )
-                        )(x, θ)
+                    v_hat_k(drift_func, diff_coeff_rough, 0, dim_r)(drift_func_smooth)
+                )(x, θ)
                 * t**3
-                / 6, # drift approximation for smooth components with the additional term O(t^3)
+                / 6,  # drift approximation for smooth components with the additional term O(t^3)
             ]
         )
         B_r = diff_coeff_rough(x, θ)
@@ -381,6 +388,7 @@ def improved_scheme_correction_terms(
 
     return Φ_1, Φ_2, Φ_3
 
+
 # This is for the correction term Φ_2 with the improved drift terms
 def variance_correction_terms_with_improved_drift(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
@@ -401,7 +409,7 @@ def variance_correction_terms_with_improved_drift(
         μ_t, _ = mean_and_covariance(x, θ, t)
         dim_r = drift_func_rough(x, θ).shape[0]
         y_r, y_s = y[:dim_r], y[dim_r:]
-        μ_t_r, μ_t_s = μ_t[:dim_r], μ_t[dim_r:]  
+        μ_t_r, μ_t_s = μ_t[:dim_r], μ_t[dim_r:]
         Σ_1_h_1 = snp.concatenate(
             (
                 (y_r - μ_t_r) / snp.sqrt(t),
@@ -537,7 +545,8 @@ def variance_correction_terms_with_improved_drift(
 
     return Φ_2
 
-# This returns log of LG density for Hypo-I model 
+
+# This returns log of LG density for Hypo-I model
 def local_gaussian_log_transition_density(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
 ):
@@ -566,7 +575,8 @@ def local_gaussian_log_transition_density(
 
     return log_transition_density
 
-# This returns log of LG density for Hypo-II model 
+
+# This returns log of LG density for Hypo-II model
 def local_gaussian_log_transition_density_II(
     drift_func_smooth_1, drift_func_smooth_2, drift_func_rough, diff_coeff_rough
 ):
@@ -594,6 +604,7 @@ def local_gaussian_log_transition_density_II(
         )
 
     return log_transition_density
+
 
 # This is the log density of LG scheme with improved drift approximation
 def local_gaussian_log_transition_density_improved_drift(
@@ -655,7 +666,7 @@ def improved_scheme_log_transition_density_2(
     )
 
     def log1p_taylor_expansion(z, n=6):
-        return sum((-1)**(i + 1) * z**i / i for i in range(1, n + 1))
+        return sum((-1) ** (i + 1) * z**i / i for i in range(1, n + 1))
 
     def log_transition_density(x_t, x_0, θ, t):
         Φ = Φ_1(t, x_0, x_t, θ) + Φ_2(t, x_0, x_t, θ) + Φ_3(t, x_0, x_t, θ)
@@ -679,6 +690,7 @@ def improved_scheme_log_transition_density_proxy(
         return lg_log_transition_density(x_t, x_0, θ, t) + Φ_2(t, x_0, x_t, θ)
 
     return log_transition_density
+
 
 ## This is the contrast function achieving the CLT with Δ = o (n^{-1/4})
 def improved_scheme2_log_transition_density_proxy(
