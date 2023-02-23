@@ -161,7 +161,7 @@ def hypoelliptic_local_gaussian_step(
 # This is the sampling scheme for the model Hypo-II
 # smooth_1 correponds to the most smooth part of the system, for example,
 # smooth_1 = position, smooth_2 = momentum in the generalized Langevin equation
-def hypoelliptic_II_local_gaussian_step(
+def hypoelliptic_ii_local_gaussian_step(
     drift_func,
     drift_func_rough,
     drift_func_smooth_1,

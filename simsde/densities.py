@@ -2,6 +2,7 @@ import sympy
 import symnum.numpy as snp
 from simsde.operators import v_hat_k, subscript_k
 
+
 # This is the local gaussian density for the model Hypo-I.
 def local_gaussian_mean_and_covariance(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
@@ -47,8 +48,9 @@ def local_gaussian_mean_and_covariance(
 
 
 # This return mean and covariance of the local gaussian density for the model Hypo-II.
-# Note: drift_func_smooth_1 is assumed to be the drift for the most smooth components and does not depend on rough components
-def local_gaussian_mean_and_covariance_II(
+# Note: drift_func_smooth_1 is assumed to be the drift for the most smooth components
+# and does not depend on rough components
+def local_gaussian_mean_and_covariance_ii(
     drift_func_smooth_1, drift_func_smooth_2, drift_func_rough, diff_coeff_rough
 ):
     def drift_func(x, θ):
@@ -577,11 +579,11 @@ def local_gaussian_log_transition_density(
 
 
 # This returns log of LG density for Hypo-II model
-def local_gaussian_log_transition_density_II(
+def local_gaussian_log_transition_density_ii(
     drift_func_smooth_1, drift_func_smooth_2, drift_func_rough, diff_coeff_rough
 ):
 
-    mean_and_covariance = local_gaussian_mean_and_covariance_II(
+    mean_and_covariance = local_gaussian_mean_and_covariance_ii(
         drift_func_smooth_1, drift_func_smooth_2, drift_func_rough, diff_coeff_rough
     )
 
@@ -692,8 +694,8 @@ def improved_scheme_log_transition_density_proxy(
     return log_transition_density
 
 
-## This is the contrast function achieving the CLT with Δ = o (n^{-1/4})
-def improved_scheme2_log_transition_density_proxy(
+# This is the contrast function achieving the CLT with Δ = o (n^{-1/4})
+def improved_scheme_2_log_transition_density_proxy(
     drift_func_rough, drift_func_smooth, diff_coeff_rough
 ):
     lg_log_transition_density = local_gaussian_log_transition_density_improved_drift(
