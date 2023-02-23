@@ -6,7 +6,7 @@ setup(
     name='simsde',
     version='0.1.0',
     description='Numerical integrators for simulating stochastic differential equations',
-    author='Matt Graham',
+    author='Matt Graham and Yuga Iguchi',
     url='https://github.com/matt-graham/sdesim.git',
     packages=find_packages(),
     python_requires='>=3.7',
